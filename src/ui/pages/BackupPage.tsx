@@ -74,7 +74,8 @@ export function BackupPage() {
     <div className="page">
       <h2>Backup</h2>
       <p className="muted">
-        Storage: {backend}. {transactions.length} transactions saved on this device.
+        Storage: {backend}. {transactions.length} transactions for this user. Export and import cover all users on
+        this device.
       </p>
       {persisted === true && <p className="notice">Persistent storage granted by the browser.</p>}
       {persisted === false && (

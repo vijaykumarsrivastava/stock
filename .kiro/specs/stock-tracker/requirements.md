@@ -110,6 +110,21 @@ A personal, offline-first app to record stock buy and sell transactions and see 
 2. THE project SHALL support development and testing in a desktop browser.
 3. THE repository SHALL include a GitHub Actions workflow that builds a debug Android APK and publishes it as a downloadable artifact.
 
+### 9. Users
+
+**User story:** As an investor, I want separate users, so that each person's stocks and profit and loss stay apart.
+
+**Acceptance criteria**
+1. THE first page on every launch SHALL ask the user to select a user from a dropdown or add a new one.
+2. A new user SHALL need only one field: the user name, 1 to 50 characters after trimming.
+3. THE app SHALL reject a name that matches an existing user, ignoring letter case and extra spaces, and SHALL show a message.
+4. WHEN a user is added, THE app SHALL save it and open the app as that user.
+5. EVERY transaction SHALL belong to one user, and all pages (holdings, trade, history, profit and loss, autocomplete) SHALL show only the selected user's data.
+6. A sell SHALL only use buy lots of the same user.
+7. THE app SHALL show the selected user's name and a "Switch user" button that returns to the first page.
+8. WHEN existing data from before users existed is found, THE app SHALL assign it to a user named "Default".
+9. Backup export and import SHALL cover all users. Importing a version 1 backup (no users) SHALL assign its transactions to a "Default" user.
+
 ## Assumptions and out of scope
 
 - Single user, single device, one currency (₹). No login.

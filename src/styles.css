@@ -112,3 +112,8 @@ table.lots tr.selected { background: #e8f5e9; }
 .link-text { color: #0b57d0; text-decoration: underline; }
 .tx.flash { animation: flash 2s ease-out; }
 @keyframes flash { 0%, 60% { background: #fff59d; } 100% { background: var(--card); } }
+
+.topbar { max-width: 640px; margin: 0 auto; padding: 10px 14px 0; display: flex; justify-content: space-between; align-items: center; }
+.user-page { padding-top: 40px; }
+.user-page h1 { text-align: center; color: var(--green); }
+.divider { text-align: center; color: var(--muted); margin: 18px 0; }

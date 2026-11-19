@@ -1,14 +1,16 @@
 import { normalizeStockName } from '../domain/money';
-import type { Allocation, Transaction } from '../domain/types';
+import type { Allocation, Transaction, User } from '../domain/types';
+import { DEFAULT_USER_NAME, makeUser, normalizeUserName } from '../domain/user';
 import type { Repository } from '../storage/repository';
 
 const APP_ID = 'stock-tracker';
-const VERSION = 1;
+const VERSION = 2;
 
 export interface BackupFile {
   app: string;
   version: number;
   exportedAt: string;
+  users: User[];
   transactions: Transaction[];
   allocations: Allocation[];
 }
@@ -24,15 +26,30 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isPosInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0;
 
+function checkUser(raw: unknown, i: number, problems: string[]): User | null {
+  const label = `User #${i + 1}`;
+  if (!isObj(raw)) {
+    problems.push(`${label} is not an object.`);
+    return null;
+  }
+  const before = problems.length;
+  if (!isStr(raw.id)) problems.push(`${label}: missing id.`);
+  if (!isStr(raw.name)) problems.push(`${label}: missing name.`);
+  else if (raw.nameKey !== normalizeUserName(raw.name)) problems.push(`${label}: name key does not match the name.`);
+  if (!isStr(raw.createdAt)) problems.push(`${label}: missing createdAt.`);
+  return problems.length === before ? (raw as unknown as User) : null;
+}
+
 function checkTransaction(raw: unknown, i: number, problems: string[]): Transaction | null {
   const label = `Transaction #${i + 1}`;
   if (!isObj(raw)) {
     problems.push(`${label} is not an object.`);
     return null;
   }
-  const { id, type, stockKey, stockName, quantity, price, date, createdAt } = raw;
+  const { id, userId, type, stockKey, stockName, quantity, price, date, createdAt } = raw;
   const before = problems.length;
   if (!isStr(id)) problems.push(`${label}: missing id.`);
+  if (!isStr(userId)) problems.push(`${label}: missing user.`);
   if (type !== 'BUY' && type !== 'SELL') problems.push(`${label}: type must be BUY or SELL.`);
   if (!isStr(stockName)) problems.push(`${label}: missing stock name.`);
   else if (stockKey !== normalizeStockName(stockName)) problems.push(`${label}: stock key does not match the name.`);
@@ -43,16 +60,43 @@ function checkTransaction(raw: unknown, i: number, problems: string[]): Transact
   return problems.length === before ? (raw as unknown as Transaction) : null;
 }
 
+/** Version 1 files have no users. Their transactions all go to a "Default" user. */
+function upgradeV1(data: Record<string, unknown>): Record<string, unknown> {
+  const user = makeUser(DEFAULT_USER_NAME);
+  const txs = Array.isArray(data.transactions)
+    ? data.transactions.map((t) => (isObj(t) ? { ...t, userId: user.id } : t))
+    : data.transactions;
+  return { ...data, version: VERSION, users: [user], transactions: txs };
+}
+
 /** Validate the structure and lot consistency of parsed backup data. */
-export function validateBackup(data: unknown): BackupFile {
-  if (!isObj(data)) throw new BackupError('The file is not a valid backup.');
-  if (data.app !== APP_ID) throw new BackupError('This file was not exported by Stock Tracker.');
-  if (data.version !== VERSION) throw new BackupError(`Unsupported backup version: ${String(data.version)}.`);
-  if (!Array.isArray(data.transactions) || !Array.isArray(data.allocations)) {
-    throw new BackupError('The backup is missing transactions or allocations.');
+export function validateBackup(input: unknown): BackupFile {
+  if (!isObj(input)) throw new BackupError('The file is not a valid backup.');
+  if (input.app !== APP_ID) throw new BackupError('This file was not exported by Stock Tracker.');
+  if (input.version !== 1 && input.version !== VERSION) {
+    throw new BackupError(`Unsupported backup version: ${String(input.version)}.`);
+  }
+  const data = input.version === 1 ? upgradeV1(input) : input;
+  if (!Array.isArray(data.users) || !Array.isArray(data.transactions) || !Array.isArray(data.allocations)) {
+    throw new BackupError('The backup is missing users, transactions or allocations.');
   }
 
   const problems: string[] = [];
+
+  const users: User[] = [];
+  data.users.forEach((raw, i) => {
+    const u = checkUser(raw, i, problems);
+    if (u) users.push(u);
+  });
+  const userIds = new Set<string>();
+  const userKeys = new Set<string>();
+  for (const u of users) {
+    if (userIds.has(u.id)) problems.push(`Duplicate user id ${u.id}.`);
+    if (userKeys.has(u.nameKey)) problems.push(`Duplicate user name "${u.name}".`);
+    userIds.add(u.id);
+    userKeys.add(u.nameKey);
+  }
+
   const txs: Transaction[] = [];
   data.transactions.forEach((raw, i) => {
     const t = checkTransaction(raw, i, problems);
@@ -62,6 +106,7 @@ export function validateBackup(data: unknown): BackupFile {
   const byId = new Map<string, Transaction>();
   for (const t of txs) {
     if (byId.has(t.id)) problems.push(`Duplicate transaction id ${t.id}.`);
+    if (!userIds.has(t.userId)) problems.push(`Transaction of ${t.stockName} on ${t.date} belongs to an unknown user.`);
     byId.set(t.id, t);
   }
 
@@ -80,6 +125,7 @@ export function validateBackup(data: unknown): BackupFile {
     if (!sell || sell.type !== 'SELL') problems.push(`${label}: sell transaction not found.`);
     else if (!lot || lot.type !== 'BUY') problems.push(`${label}: buy lot not found.`);
     else if (sell.stockKey !== lot.stockKey) problems.push(`${label}: sell and lot are different stocks.`);
+    else if (sell.userId !== lot.userId) problems.push(`${label}: sell and lot belong to different users.`);
     allocs.push(raw as unknown as Allocation);
   });
 
@@ -106,11 +152,13 @@ export function validateBackup(data: unknown): BackupFile {
   return data as unknown as BackupFile;
 }
 
+/** Backs up the whole device: every user. */
 export class BackupService {
   constructor(private readonly repo: Repository) {}
 
   async exportJson(): Promise<string> {
-    const [transactions, allocations] = await Promise.all([
+    const [users, transactions, allocations] = await Promise.all([
+      this.repo.listUsers(),
       this.repo.listTransactions(),
       this.repo.listAllocations(),
     ]);
@@ -118,6 +166,7 @@ export class BackupService {
       app: APP_ID,
       version: VERSION,
       exportedAt: new Date().toISOString(),
+      users,
       transactions,
       allocations,
     };
@@ -136,6 +185,6 @@ export class BackupService {
   }
 
   async importFile(file: BackupFile): Promise<void> {
-    await this.repo.replaceAll(file.transactions, file.allocations);
+    await this.repo.replaceAll(file.users, file.transactions, file.allocations);
   }
 }

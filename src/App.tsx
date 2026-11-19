@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { DataProvider } from './ui/DataContext';
+import { DataProvider, useSession } from './ui/DataContext';
 import { BackupPage } from './ui/pages/BackupPage';
 import { HoldingsPage } from './ui/pages/HoldingsPage';
 import { TradePage } from './ui/pages/TradePage';
 import { TransactionsPage } from './ui/pages/TransactionsPage';
+import { UserPage } from './ui/pages/UserPage';
 
 type Tab = 'holdings' | 'trade' | 'transactions' | 'backup';
 
@@ -22,14 +23,23 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'backup', label: 'Backup' },
 ];
 
-export default function App() {
+function MainApp() {
+  const { currentUser, switchUser } = useSession();
   const [view, setView] = useState<View>({ tab: 'holdings', nonce: 0 });
 
   const go = (tab: Tab, extra: Partial<View> = {}) =>
     setView((v) => ({ tab, nonce: v.nonce + 1, ...extra }));
 
   return (
-    <DataProvider>
+    <>
+      <header className="topbar">
+        <span>
+          User: <strong>{currentUser?.name}</strong>
+        </span>
+        <button className="btn small" onClick={switchUser}>
+          Switch user
+        </button>
+      </header>
       <main>
         {view.tab === 'holdings' && (
           <HoldingsPage
@@ -59,6 +69,20 @@ export default function App() {
           </button>
         ))}
       </nav>
+    </>
+  );
+}
+
+function Gate() {
+  const { currentUser } = useSession();
+  // Keyed by user so view state (tab, form) resets when the user changes.
+  return currentUser ? <MainApp key={currentUser.id} /> : <UserPage />;
+}
+
+export default function App() {
+  return (
+    <DataProvider>
+      <Gate />
     </DataProvider>
   );
 }

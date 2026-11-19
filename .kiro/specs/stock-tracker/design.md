@@ -210,3 +210,13 @@ Import validates the schema and then, using the same rules as normal saves, chec
 | 6 Storage | `Repository` + two backends, atomic writes, `persist()` |
 | 7 Backup | `BackupService`, Backup page |
 | 8 Platform and build | Vite, Capacitor, GitHub Actions workflow |
+
+## Users (added later)
+
+- `User { id, name, nameKey, createdAt }`. `nameKey` is the normalized name used for duplicate checks. `Transaction` gets `userId`. Allocations are scoped through their sell.
+- Repository adds `listUsers`, `saveUser`, and `replaceAll(users, txs, allocs)`. SQLite adds a `users` table (unique `name_key`) and `transactions.user_id`. IndexedDB moves to schema version 2 with a `users` store and a `userId` index.
+- Migration: on upgrade, existing transactions are assigned to a new user named "Default" (Dexie `upgrade`, and for SQLite an `ALTER TABLE ADD COLUMN` followed by an update when any row has an empty `user_id`).
+- `DataProvider` holds all users and rows in memory, tracks `currentUserId` (not persisted, so every launch starts at the user page), and exposes the selected user's filtered data. `useSession()` works before a user is chosen. `useData()` requires one.
+- `TradeService` takes a `userId`, loads only that user's rows, and stamps new transactions with it, so one user cannot sell or delete another user's lots.
+- Backup format version 2 adds `users`. Version 1 files are upgraded on import by creating a "Default" user. Validation also checks that every transaction's user exists and that a sell and its lots share a user.
+- UI: `UserPage` (dropdown plus a single name field), and a top bar in the main app with the user's name and "Switch user".

@@ -102,6 +102,16 @@
   - [x] 13.4 Trade page: live P/L column in the lot table and estimated total in the allocation summary.
     - _Requirements: 4.10_
 
+- [x] 14. Users (added later)
+  - [x] 14.1 `User` type, `Transaction.userId`, user name validation and helpers.
+    - _Requirements: 9.2, 9.3_
+  - [x] 14.2 Repository: users, migration to a "Default" user in IndexedDB and SQLite.
+    - _Requirements: 9.5, 9.8_
+  - [x] 14.3 `TradeService` scoped by user; backup version 2 with users and version 1 import.
+    - _Requirements: 9.5, 9.6, 9.9_
+  - [x] 14.4 `UserPage`, session context, top bar with "Switch user".
+    - _Requirements: 9.1, 9.4, 9.7_
+
 ## Notes
 
 - No automated tests are included, as you didn't ask for them. I can add the unit and contract tests described in the design as an extra task.

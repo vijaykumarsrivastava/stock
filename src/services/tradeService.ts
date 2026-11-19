@@ -24,14 +24,20 @@ function describe(t: Transaction): string {
 }
 
 export class TradeService {
-  constructor(private readonly repo: Repository) {}
+  constructor(
+    private readonly repo: Repository,
+    private readonly userId: string,
+  ) {}
 
+  /** Only this user's transactions and the allocations of their sells. */
   async loadAll(): Promise<{ transactions: Transaction[]; allocations: Allocation[] }> {
-    const [transactions, allocations] = await Promise.all([
+    const [all, allAllocs] = await Promise.all([
       this.repo.listTransactions(),
       this.repo.listAllocations(),
     ]);
-    return { transactions, allocations };
+    const transactions = all.filter((t) => t.userId === this.userId);
+    const ids = new Set(transactions.map((t) => t.id));
+    return { transactions, allocations: allAllocs.filter((a) => ids.has(a.sellId)) };
   }
 
   async addTrade(input: TradeInput, allocationInputs: AllocationInput[] = []): Promise<SaveResult> {
@@ -132,6 +138,7 @@ export class TradeService {
     const stockName = cleanStockName(input.stockName);
     return {
       id,
+      userId: this.userId,
       type: input.type,
       stockKey: normalizeStockName(stockName),
       stockName,

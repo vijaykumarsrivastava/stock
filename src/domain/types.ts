@@ -1,7 +1,18 @@
 export type TxType = 'BUY' | 'SELL';
 
+export interface User {
+  id: string;
+  /** Name as typed, for display. */
+  name: string;
+  /** Normalized name used to detect duplicates. */
+  nameKey: string;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
+  /** Owner of this transaction. */
+  userId: string;
   type: TxType;
   /** Normalized name used for matching. */
   stockKey: string;
