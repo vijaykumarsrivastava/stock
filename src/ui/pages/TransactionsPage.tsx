@@ -25,6 +25,15 @@ export function TransactionsPage({ onEdit }: Props) {
     [transactions],
   );
 
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  /** Scroll to a buy transaction and flash it so the user can see where it is. */
+  const jumpTo = (id: string) => {
+    document.getElementById(`tx-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightId(id);
+    window.setTimeout(() => setHighlightId((cur) => (cur === id ? null : cur)), 2000);
+  };
+
   const confirmDelete = async () => {
     if (!toDelete) return;
     const target = toDelete;
@@ -46,7 +55,7 @@ export function TransactionsPage({ onEdit }: Props) {
         {rows.map((t) => {
           const b = breakdowns.get(t.id);
           return (
-            <li key={t.id} className="tx">
+            <li key={t.id} id={`tx-${t.id}`} className={`tx${highlightId === t.id ? ' flash' : ''}`}>
               <div className="tx-main">
                 <span className={`badge ${t.type === 'BUY' ? 'buy' : 'sell'}`}>{t.type}</span>
                 <strong>{t.stockName}</strong>
@@ -59,12 +68,18 @@ export function TransactionsPage({ onEdit }: Props) {
                 <div className="sell-detail">
                   <div className="muted">Sold from these buys:</div>
                   {b.lines.map((l, i) => (
-                    <div key={i} className="sell-line">
-                      <span>
-                        {l.quantity} × bought {l.lot.date} @ {formatInr(l.lot.price)}
+                    <button
+                      key={i}
+                      type="button"
+                      className="sell-line link"
+                      onClick={() => jumpTo(l.lot.id)}
+                      aria-label={`Go to buy of ${l.lot.date} at ${l.lot.price}`}
+                    >
+                      <span className="link-text">
+                        {l.quantity} × bought {l.lot.date} @ {formatInr(l.lot.price)} ›
                       </span>
                       <PlText value={l.pl} label={false} />
-                    </div>
+                    </button>
                   ))}
                   <div className="sell-total">
                     <span>Total</span>

@@ -79,6 +79,7 @@ A personal, offline-first app to record stock buy and sell transactions and see 
 5. WHEN a sell is edited, THE user SHALL be able to change its lot allocations by the same rules as requirement 4.
 6. THE app SHALL ask for confirmation before deleting.
 7. THE transaction list SHALL show, for every sell, each linked buy lot (quantity, buy date, buy price) with the profit or loss on that lot, and the total profit or loss for the sell.
+8. WHEN the user taps a linked buy lot on a sell, THE app SHALL scroll to that buy in the transaction list and briefly highlight it.
 
 ### 6. Storage and persistence
 

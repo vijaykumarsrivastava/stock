@@ -97,6 +97,8 @@
     - _Requirements: 2.7, 2.8, 2.9_
   - [x] 13.3 Transactions page: linked buy lots with P/L per lot and total for each sell.
     - _Requirements: 5.7_
+  - [x] 13.5 Tappable links from a sell's lot lines to the buy transaction (scroll and highlight).
+    - _Requirements: 5.8_
   - [x] 13.4 Trade page: live P/L column in the lot table and estimated total in the allocation summary.
     - _Requirements: 4.10_
 
