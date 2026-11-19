@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { defaultAllocationQuantity } from '../../domain/allocation';
 import { sortLots } from '../../domain/lots';
 import { formatInr, fromPaise, toPaise } from '../../domain/money';
+import { formatDateTime } from '../../domain/prices';
 import type { Lot, LotSortColumn, SortDirection } from '../../domain/types';
 import { PlText } from './PlText';
 
@@ -12,6 +13,8 @@ interface Props {
     sellQuantity: number;
     /** Sell price typed by the user, NaN when not valid yet. */
     sellPrice: number;
+    /** Saved current price of this stock, used when no sell price is typed. */
+    currentPrice?: { price: number; updatedAt: string };
     /** lotId -> quantity text typed by the user */
     values: Record<string, string>;
     onChange: (lotId: string, value: string) => void;
@@ -30,6 +33,11 @@ export function LotTable({ lots, picker }: Props) {
   const [direction, setDirection] = useState<SortDirection>('desc');
 
   const rows = sortLots(lots, column, direction);
+
+  // P/L uses the sell price typed in the form, otherwise the saved current price.
+  const enteredPrice =
+    picker && Number.isFinite(picker.sellPrice) && picker.sellPrice > 0 ? picker.sellPrice : null;
+  const usedPrice = enteredPrice ?? picker?.currentPrice?.price ?? null;
 
   const toggle = (c: LotSortColumn) => {
     if (c === column) {
@@ -109,9 +117,9 @@ export function LotTable({ lots, picker }: Props) {
                 )}
                 {picker && (
                   <td>
-                    {!over && qty > 0 && Number.isFinite(picker.sellPrice) && picker.sellPrice > 0 ? (
+                    {usedPrice !== null && !over ? (
                       <PlText
-                        value={fromPaise((toPaise(picker.sellPrice) - toPaise(l.price)) * qty)}
+                        value={fromPaise((toPaise(usedPrice) - toPaise(l.price)) * (qty > 0 ? qty : l.remaining))}
                         label={false}
                       />
                     ) : (
@@ -124,6 +132,13 @@ export function LotTable({ lots, picker }: Props) {
           })}
         </tbody>
       </table>
+      {picker && (
+        <p className="muted table-note">
+          {usedPrice === null
+            ? 'P/L needs a price: enter the sell price above, or save the current price on the Prices tab.'
+            : `P/L at ${enteredPrice !== null ? 'the sell price you entered' : `the current price ${formatInr(usedPrice)}, as of ${formatDateTime(picker.currentPrice!.updatedAt)}`}. Lots with no quantity show the P/L for all their remaining shares.`}
+        </p>
+      )}
     </div>
   );
 }

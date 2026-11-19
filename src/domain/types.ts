@@ -9,6 +9,18 @@ export interface User {
   createdAt: string;
 }
 
+/** Latest price of a stock, entered by the user. Shared by all users. Only the latest is kept. */
+export interface PriceQuote {
+  /** Normalized stock name, same as Transaction.stockKey. */
+  stockKey: string;
+  /** Name as typed in the price list, for display. */
+  symbol: string;
+  /** Rupees per share, greater than zero. */
+  price: number;
+  /** ISO timestamp of when the price was saved. */
+  updatedAt: string;
+}
+
 export interface Transaction {
   id: string;
   /** Owner of this transaction. */

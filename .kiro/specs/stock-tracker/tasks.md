@@ -102,6 +102,9 @@
   - [x] 13.4 Trade page: live P/L column in the lot table and estimated total in the allocation summary.
     - _Requirements: 4.10_
 
+- [x] 13.6 History filter by buy sold status (fully, partly, not sold) and status line on each buy.
+  - _Requirements: 5.9, 5.10_
+
 - [x] 14. Users (added later)
   - [x] 14.1 `User` type, `Transaction.userId`, user name validation and helpers.
     - _Requirements: 9.2, 9.3_
@@ -111,6 +114,16 @@
     - _Requirements: 9.5, 9.6, 9.9_
   - [x] 14.4 `UserPage`, session context, top bar with "Switch user".
     - _Requirements: 9.1, 9.4, 9.7_
+
+- [x] 15. Current prices (added later)
+  - [x] 15.1 `PriceQuote`, `parsePrices`, `formatDateTime`, `unrealizedByStock`.
+    - _Requirements: 10.2, 10.3, 10.8, 10.9_
+  - [x] 15.2 Repository: prices in IndexedDB (v3) and SQLite; backup with prices.
+    - _Requirements: 10.4, 10.5, 10.10_
+  - [x] 15.3 Prices page: text box, file load, preview, save, saved list with update time.
+    - _Requirements: 10.1, 10.3, 10.4, 10.7_
+  - [x] 15.4 Stocks page: current price, as-of time, unrealized profit or loss, total.
+    - _Requirements: 10.8, 10.9_
 
 ## Notes
 

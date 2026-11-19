@@ -29,11 +29,11 @@ On Windows PowerShell, if `npm` is blocked by the execution policy, use `npm.cmd
 
 1. Copy `app-debug.apk` to the phone and open it. Allow "Install unknown apps" for the app you opened it from.
 2. Updates must use the same signing key. Debug builds from GitHub Actions use a new debug key per runner, so an update may require uninstalling first.
-3. **Uninstalling the app or clearing its data deletes all records.** Use Backup > Export first, and Import after reinstalling.
+3. **Uninstalling the app or clearing its data deletes all records.** Use Data > Backup > Export first, and Import after reinstalling.
 
 ## Backup
 
-The Backup tab exports all data as JSON (on Android it opens the share sheet so you can save it to Drive or Files) and imports a previous export. Import validates the file and replaces all data after confirmation.
+The Backup section of the Data tab exports all data as JSON (on Android it opens the share sheet so you can save it to Drive or Files) and imports a previous export. Import validates the file and replaces all data after confirmation.
 
 ## Browser caveats
 

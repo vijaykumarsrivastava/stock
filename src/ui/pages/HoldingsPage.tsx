@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { formatInr } from '../../domain/money';
-import { realizedByStock } from '../../domain/pnl';
+import { realizedByStock, unrealizedByStock } from '../../domain/pnl';
+import { formatDateTime } from '../../domain/prices';
 import { PlText } from '../components/PlText';
 import { useData } from '../DataContext';
 
@@ -10,9 +11,10 @@ interface Props {
 }
 
 export function HoldingsPage({ onOpenStock, onAdd }: Props) {
-  const { holdings, transactions, allocations } = useData();
+  const { holdings, transactions, allocations, lots, prices } = useData();
 
   const pl = useMemo(() => realizedByStock(transactions, allocations), [transactions, allocations]);
+  const unrealized = useMemo(() => unrealizedByStock(lots, prices), [lots, prices]);
   const heldKeys = new Set(holdings.map((h) => h.stockKey));
   const soldOut = [...pl.stocks.values()]
     .filter((s) => !heldKeys.has(s.stockKey))
@@ -23,11 +25,30 @@ export function HoldingsPage({ onOpenStock, onAdd }: Props) {
       <h2>My stocks</h2>
 
       {transactions.length > 0 && (
-        <div className="card total-card">
-          <div className="card-title">Overall realized profit / loss</div>
-          <div className="total-value">
-            <PlText value={pl.total} label={false} />
+        <div className="row cards">
+          <div className="card">
+            <div className="card-title">Realized profit / loss</div>
+            <div className="total-value">
+              <PlText value={pl.total} label={false} />
+            </div>
           </div>
+          {holdings.length > 0 && (
+            <div className="card">
+              <div className="card-title">Unrealized profit / loss</div>
+              <div className="total-value">
+                {unrealized.stocks.size > 0 ? (
+                  <PlText value={unrealized.total} label={false} />
+                ) : (
+                  <span className="muted">-</span>
+                )}
+              </div>
+              {unrealized.missing > 0 && (
+                <div className="muted small-text">
+                  {unrealized.missing} {unrealized.missing === 1 ? 'stock has' : 'stocks have'} no price
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -45,18 +66,31 @@ export function HoldingsPage({ onOpenStock, onAdd }: Props) {
             <span>Avg price</span>
             <span>Qty</span>
           </li>
-          {holdings.map((h) => (
-            <li key={h.stockKey}>
-              <button className="list-row" onClick={() => onOpenStock(h.stockName)}>
-                <span className="name">{h.stockName}</span>
-                <span>{formatInr(h.averagePrice)}</span>
-                <span>{h.totalQuantity}</span>
-                <span className="pl-line">
-                  Realized P/L: <PlText value={pl.stocks.get(h.stockKey)?.realizedPl ?? 0} label={false} />
-                </span>
-              </button>
-            </li>
-          ))}
+          {holdings.map((h) => {
+            const u = unrealized.stocks.get(h.stockKey);
+            return (
+              <li key={h.stockKey}>
+                <button className="list-row" onClick={() => onOpenStock(h.stockName)}>
+                  <span className="name">{h.stockName}</span>
+                  <span>{formatInr(h.averagePrice)}</span>
+                  <span>{h.totalQuantity}</span>
+                  <span className="pl-line">
+                    Realized: <PlText value={pl.stocks.get(h.stockKey)?.realizedPl ?? 0} label={false} />
+                  </span>
+                  <span className="pl-line">
+                    {u ? (
+                      <>
+                        Now {formatInr(u.price)} · Unrealized: <PlText value={u.unrealizedPl} label={false} />
+                        <span className="as-of"> as of {formatDateTime(u.updatedAt)}</span>
+                      </>
+                    ) : (
+                      <>No current price</>
+                    )}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 

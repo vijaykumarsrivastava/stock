@@ -3,7 +3,7 @@ import {
   SQLiteConnection,
   type SQLiteDBConnection,
 } from '@capacitor-community/sqlite';
-import type { Allocation, Transaction, User } from '../domain/types';
+import type { Allocation, PriceQuote, Transaction, User } from '../domain/types';
 import { DEFAULT_USER_NAME, makeUser } from '../domain/user';
 import type { Repository } from './repository';
 
@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS allocations (
   lot_id TEXT NOT NULL REFERENCES transactions(id) ON DELETE RESTRICT,
   quantity INTEGER NOT NULL CHECK (quantity > 0)
 );
+CREATE TABLE IF NOT EXISTS prices (
+  stock_key TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  price REAL NOT NULL CHECK (price > 0),
+  updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_alloc_lot ON allocations(lot_id);
 CREATE INDEX IF NOT EXISTS idx_alloc_sell ON allocations(sell_id);
 `;
@@ -55,6 +61,18 @@ const insertTx = (t: Transaction): Stmt => ({
     'INSERT INTO transactions (id, user_id, type, stock_key, stock_name, quantity, price, date, created_at) VALUES (?,?,?,?,?,?,?,?,?)',
   values: [t.id, t.userId, t.type, t.stockKey, t.stockName, t.quantity, t.price, t.date, t.createdAt],
 });
+
+const upsertPrice = (q: PriceQuote): Stmt => ({
+  statement: 'INSERT OR REPLACE INTO prices (stock_key, symbol, price, updated_at) VALUES (?,?,?,?)',
+  values: [q.stockKey, q.symbol, q.price, q.updatedAt],
+});
+
+interface PriceRow {
+  stock_key: string;
+  symbol: string;
+  price: number;
+  updated_at: string;
+}
 
 const insertAlloc = (a: Allocation): Stmt => ({
   statement: 'INSERT INTO allocations (id, sell_id, lot_id, quantity) VALUES (?,?,?,?)',
@@ -203,14 +221,36 @@ export class SqliteRepository implements Repository {
     ]);
   }
 
-  replaceAll(users: User[], txs: Transaction[], allocs: Allocation[]): Promise<void> {
+  async listPrices(): Promise<PriceQuote[]> {
+    const res = await this.db.query('SELECT * FROM prices');
+    return ((res.values ?? []) as PriceRow[]).map((r) => ({
+      stockKey: r.stock_key,
+      symbol: r.symbol,
+      price: r.price,
+      updatedAt: r.updated_at,
+    }));
+  }
+
+  savePrices(quotes: PriceQuote[]): Promise<void> {
+    if (quotes.length === 0) return Promise.resolve();
+    return this.runAtomic(quotes.map(upsertPrice));
+  }
+
+  replaceAll(
+    users: User[],
+    txs: Transaction[],
+    allocs: Allocation[],
+    prices: PriceQuote[],
+  ): Promise<void> {
     return this.runAtomic([
       { statement: 'DELETE FROM allocations' },
       { statement: 'DELETE FROM transactions' },
       { statement: 'DELETE FROM users' },
+      { statement: 'DELETE FROM prices' },
       ...users.map(insertUser),
       ...txs.map(insertTx),
       ...allocs.map(insertAlloc),
+      ...prices.map(upsertPrice),
     ]);
   }
 

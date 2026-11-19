@@ -11,18 +11,47 @@ interface Props {
   onEdit: (id: string) => void;
 }
 
+type SoldStatus = 'FULL' | 'PARTIAL' | 'NONE';
+/** ALL shows everything. The others show only buys with that sold status. */
+type BuyFilter = 'ALL' | SoldStatus;
+
+const STATUS_LABEL: Record<SoldStatus, string> = {
+  FULL: 'Fully sold',
+  PARTIAL: 'Partly sold',
+  NONE: 'Not sold',
+};
+
 export function TransactionsPage({ onEdit }: Props) {
-  const { transactions, allocations, trade, reload } = useData();
+  const { transactions, allocations, lots, trade, reload } = useData();
+  const [filter, setFilter] = useState<BuyFilter>('ALL');
+
+  const lotById = useMemo(() => new Map(lots.map((l) => [l.id, l])), [lots]);
+  const statusOf = (id: string): SoldStatus | null => {
+    const l = lotById.get(id);
+    if (!l) return null;
+    if (l.remaining <= 0) return 'FULL';
+    return l.remaining === l.quantity ? 'NONE' : 'PARTIAL';
+  };
+  const counts = useMemo(() => {
+    const c = { FULL: 0, PARTIAL: 0, NONE: 0 };
+    for (const l of lots) c[l.remaining <= 0 ? 'FULL' : l.remaining === l.quantity ? 'NONE' : 'PARTIAL']++;
+    return c;
+  }, [lots]);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
   const [problem, setProblem] = useState<{ title: string; details: string[] } | null>(null);
 
   const breakdowns = useMemo(() => sellBreakdowns(transactions, allocations), [transactions, allocations]);
   const rows = useMemo(
     () =>
-      [...transactions].sort(
-        (a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
-      ),
-    [transactions],
+      [...transactions]
+        .filter((t) => {
+          if (filter === 'ALL') return true;
+          if (t.type !== 'BUY') return false;
+          return statusOf(t.id) === filter;
+        })
+        .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, filter, lotById],
   );
 
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -50,7 +79,28 @@ export function TransactionsPage({ onEdit }: Props) {
   return (
     <div className="page">
       <h2>Transactions</h2>
-      {rows.length === 0 && <p className="muted">No transactions yet.</p>}
+
+      <div className="chips" role="group" aria-label="Filter buys by sold status">
+        <button className={filter === 'ALL' ? 'chip active' : 'chip'} onClick={() => setFilter('ALL')}>
+          All
+        </button>
+        {(['FULL', 'PARTIAL', 'NONE'] as SoldStatus[]).map((s) => (
+          <button
+            key={s}
+            className={filter === s ? 'chip active' : 'chip'}
+            onClick={() => setFilter(filter === s ? 'ALL' : s)}
+          >
+            {STATUS_LABEL[s]} ({counts[s]})
+          </button>
+        ))}
+      </div>
+      {filter !== 'ALL' && (
+        <p className="muted small-text">Showing buys only: {STATUS_LABEL[filter].toLowerCase()}.</p>
+      )}
+
+      {rows.length === 0 && (
+        <p className="muted">{transactions.length === 0 ? 'No transactions yet.' : 'No transactions match this filter.'}</p>
+      )}
       <ul className="tx-list">
         {rows.map((t) => {
           const b = breakdowns.get(t.id);
@@ -64,6 +114,14 @@ export function TransactionsPage({ onEdit }: Props) {
               <div>
                 {t.quantity} @ {formatInr(t.price)}
               </div>
+              {t.type === 'BUY' && lotById.get(t.id) && (
+                <div className="muted small-text">
+                  {STATUS_LABEL[statusOf(t.id)!]}
+                  {statusOf(t.id) !== 'NONE' &&
+                    `: ${lotById.get(t.id)!.quantity - lotById.get(t.id)!.remaining} sold`}
+                  {statusOf(t.id) !== 'FULL' && `, ${lotById.get(t.id)!.remaining} left`}
+                </div>
+              )}
               {b && (
                 <div className="sell-detail">
                   <div className="muted">Sold from these buys:</div>

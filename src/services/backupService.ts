@@ -1,5 +1,5 @@
 import { normalizeStockName } from '../domain/money';
-import type { Allocation, Transaction, User } from '../domain/types';
+import type { Allocation, PriceQuote, Transaction, User } from '../domain/types';
 import { DEFAULT_USER_NAME, makeUser, normalizeUserName } from '../domain/user';
 import type { Repository } from '../storage/repository';
 
@@ -13,6 +13,8 @@ export interface BackupFile {
   users: User[];
   transactions: Transaction[];
   allocations: Allocation[];
+  /** Latest prices. Missing in older files. */
+  prices: PriceQuote[];
 }
 
 export class BackupError extends Error {
@@ -144,12 +146,39 @@ export function validateBackup(input: unknown): BackupFile {
     }
   }
 
+  const prices: PriceQuote[] = [];
+  if (data.prices !== undefined) {
+    if (!Array.isArray(data.prices)) {
+      problems.push('Prices must be a list.');
+    } else {
+      const seen = new Set<string>();
+      data.prices.forEach((raw, i) => {
+        const label = `Price #${i + 1}`;
+        if (
+          !isObj(raw) ||
+          !isStr(raw.symbol) ||
+          raw.stockKey !== normalizeStockName(String(raw.symbol)) ||
+          typeof raw.price !== 'number' ||
+          !Number.isFinite(raw.price) ||
+          raw.price <= 0 ||
+          !isStr(raw.updatedAt)
+        ) {
+          problems.push(`${label} is malformed.`);
+          return;
+        }
+        if (seen.has(raw.stockKey as string)) problems.push(`${label}: duplicate stock.`);
+        seen.add(raw.stockKey as string);
+        prices.push(raw as unknown as PriceQuote);
+      });
+    }
+  }
+
   if (problems.length) {
     const shown = problems.slice(0, 10);
     if (problems.length > shown.length) shown.push(`...and ${problems.length - shown.length} more.`);
     throw new BackupError('The backup file failed validation. Nothing was changed.', shown);
   }
-  return data as unknown as BackupFile;
+  return { ...(data as unknown as BackupFile), prices };
 }
 
 /** Backs up the whole device: every user. */
@@ -157,10 +186,11 @@ export class BackupService {
   constructor(private readonly repo: Repository) {}
 
   async exportJson(): Promise<string> {
-    const [users, transactions, allocations] = await Promise.all([
+    const [users, transactions, allocations, prices] = await Promise.all([
       this.repo.listUsers(),
       this.repo.listTransactions(),
       this.repo.listAllocations(),
+      this.repo.listPrices(),
     ]);
     const file: BackupFile = {
       app: APP_ID,
@@ -169,6 +199,7 @@ export class BackupService {
       users,
       transactions,
       allocations,
+      prices,
     };
     return JSON.stringify(file, null, 2);
   }
@@ -185,6 +216,6 @@ export class BackupService {
   }
 
   async importFile(file: BackupFile): Promise<void> {
-    await this.repo.replaceAll(file.users, file.transactions, file.allocations);
+    await this.repo.replaceAll(file.users, file.transactions, file.allocations, file.prices ?? []);
   }
 }

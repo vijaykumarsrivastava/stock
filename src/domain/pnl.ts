@@ -1,5 +1,5 @@
 import { fromPaise, toPaise } from './money';
-import type { Allocation, Transaction } from './types';
+import type { Allocation, Lot, PriceQuote, Transaction } from './types';
 
 export interface SellLine {
   lot: Transaction;
@@ -43,6 +43,42 @@ export function sellBreakdowns(
     out.set(sell.id, { sell, lines, totalPl: fromPaise(paise) });
   }
   return out;
+}
+
+export interface StockUnrealized {
+  stockKey: string;
+  price: number;
+  updatedAt: string;
+  /** Sum over remaining lots of (current price - lot price) * remaining, in rupees. */
+  unrealizedPl: number;
+}
+
+/**
+ * Unrealized P/L for stocks that have a price. Holdings without a price are counted in
+ * `missing` and left out of the total.
+ */
+export function unrealizedByStock(
+  lots: Lot[],
+  prices: Map<string, PriceQuote>,
+): { stocks: Map<string, StockUnrealized>; total: number; missing: number } {
+  const paise = new Map<string, number>();
+  const held = new Set<string>();
+  for (const l of lots) {
+    if (l.remaining <= 0) continue;
+    held.add(l.stockKey);
+    const q = prices.get(l.stockKey);
+    if (!q) continue;
+    paise.set(l.stockKey, (paise.get(l.stockKey) ?? 0) + (toPaise(q.price) - toPaise(l.price)) * l.remaining);
+  }
+  const stocks = new Map<string, StockUnrealized>();
+  let total = 0;
+  for (const [key, p] of paise) {
+    const q = prices.get(key)!;
+    stocks.set(key, { stockKey: key, price: q.price, updatedAt: q.updatedAt, unrealizedPl: fromPaise(p) });
+    total += p;
+  }
+  const missing = [...held].filter((k) => !prices.has(k)).length;
+  return { stocks, total: fromPaise(total), missing };
 }
 
 /** Realized P/L per stock (including stocks that are fully sold) and overall. */

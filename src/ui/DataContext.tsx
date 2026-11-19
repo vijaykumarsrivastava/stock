@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { computeHoldings, computeLots } from '../domain/lots';
-import type { Allocation, Holding, Lot, Transaction, User } from '../domain/types';
+import type { Allocation, Holding, Lot, PriceQuote, Transaction, User } from '../domain/types';
 import { makeUser, normalizeUserName, validateUserName } from '../domain/user';
 import { BackupService } from '../services/backupService';
 import { TradeService } from '../services/tradeService';
@@ -34,6 +34,10 @@ interface SessionCtx {
   /** Distinct stock names the current user has entered, for autocomplete. */
   stockNames: string[];
   trade: TradeService | null;
+  /** Latest price per stock (shared by all users), keyed by stockKey. */
+  prices: Map<string, PriceQuote>;
+  /** Save prices, stamped with the current time. Returns the timestamp. */
+  savePrices: (items: { symbol: string; stockKey: string; price: number }[]) => Promise<string>;
   reload: () => Promise<void>;
 }
 
@@ -64,6 +68,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [allAllocations, setAllAllocations] = useState<Allocation[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [priceList, setPriceList] = useState<PriceQuote[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,9 +76,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         const r = await createRepository();
         const p = await r.requestPersistence();
-        const [u, t, a] = await Promise.all([r.listUsers(), r.listTransactions(), r.listAllocations()]);
+        const [u, t, a, pr] = await Promise.all([
+          r.listUsers(),
+          r.listTransactions(),
+          r.listAllocations(),
+          r.listPrices(),
+        ]);
         if (cancelled) return;
         setPersisted(p);
+        setPriceList(pr);
         setUsers(u);
         setAllTransactions(t);
         setAllAllocations(a);
@@ -89,7 +100,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(async () => {
     if (!repo) return;
-    const [u, t, a] = await Promise.all([repo.listUsers(), repo.listTransactions(), repo.listAllocations()]);
+    const [u, t, a, pr] = await Promise.all([
+      repo.listUsers(),
+      repo.listTransactions(),
+      repo.listAllocations(),
+      repo.listPrices(),
+    ]);
+    setPriceList(pr);
     setUsers(u);
     setAllTransactions(t);
     setAllAllocations(a);
@@ -112,6 +129,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setCurrentUserId(user.id);
     },
     [repo, users],
+  );
+
+  const savePrices = useCallback(
+    async (items: { symbol: string; stockKey: string; price: number }[]) => {
+      if (!repo) throw new Error('Storage is not ready.');
+      const updatedAt = new Date().toISOString();
+      const quotes: PriceQuote[] = items.map((i) => ({ ...i, updatedAt }));
+      await repo.savePrices(quotes);
+      setPriceList((prev) => {
+        const map = new Map(prev.map((q) => [q.stockKey, q]));
+        for (const q of quotes) map.set(q.stockKey, q);
+        return [...map.values()];
+      });
+      return updatedAt;
+    },
+    [repo],
   );
 
   const value = useMemo<SessionCtx | null>(() => {
@@ -142,9 +175,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       holdings: computeHoldings(lots),
       stockNames: [...names.values()].sort((a, b) => a.localeCompare(b)),
       trade: currentUser ? new TradeService(repo, currentUser.id) : null,
+      prices: new Map(priceList.map((q) => [q.stockKey, q])),
+      savePrices,
       reload,
     };
-  }, [repo, persisted, users, currentUserId, allTransactions, allAllocations, addUser, reload]);
+  }, [repo, persisted, users, currentUserId, allTransactions, allAllocations, priceList, addUser, savePrices, reload]);
 
   if (error) {
     return (

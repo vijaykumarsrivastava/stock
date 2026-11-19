@@ -220,3 +220,13 @@ Import validates the schema and then, using the same rules as normal saves, chec
 - `TradeService` takes a `userId`, loads only that user's rows, and stamps new transactions with it, so one user cannot sell or delete another user's lots.
 - Backup format version 2 adds `users`. Version 1 files are upgraded on import by creating a "Default" user. Validation also checks that every transaction's user exists and that a sell and its lots share a user.
 - UI: `UserPage` (dropdown plus a single name field), and a top bar in the main app with the user's name and "Switch user".
+
+## Current prices (added later)
+
+- `PriceQuote { stockKey, symbol, price, updatedAt }`, one row per stock, overwritten on each save (no history). Not tied to a user.
+- Repository adds `listPrices` and `savePrices` (upsert, atomic). `replaceAll` also takes the prices. IndexedDB moves to schema version 3 with a `prices` store keyed by `stockKey`. SQLite adds a `prices` table (`CREATE TABLE IF NOT EXISTS`, so no migration is needed).
+- `domain/prices.ts`: `parsePrices(text)` splits lines on `;`, accepts commas and a ₹ sign inside the price, skips blank lines and a header row, marks bad lines invalid with a reason (a line with commas but no `;` gets a hint), and marks repeated stocks so the last wins. `formatDateTime` shows the local date and time.
+- `domain/pnl.ts`: `unrealizedByStock(lots, prices)` sums (price − lot price) × remaining per stock in paise, and counts holdings with no price.
+- `PricesPage`: text box and file loader (the file's text fills the box), live preview, Save, list of saved prices with update time, and holdings with no price. `savePrices` in the data context stamps every saved line with one timestamp.
+- Stocks page: a second summary card for unrealized profit or loss, and per holding the current price, "as of" date and time, and unrealized profit or loss.
+- Backup: `prices` is an optional field in the version 2 format. A file without it clears prices on import.

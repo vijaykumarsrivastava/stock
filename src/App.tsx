@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { DataProvider, useSession } from './ui/DataContext';
-import { BackupPage } from './ui/pages/BackupPage';
+import { DataPage } from './ui/pages/DataPage';
 import { HoldingsPage } from './ui/pages/HoldingsPage';
 import { TradePage } from './ui/pages/TradePage';
 import { TransactionsPage } from './ui/pages/TransactionsPage';
 import { UserPage } from './ui/pages/UserPage';
 
-type Tab = 'holdings' | 'trade' | 'transactions' | 'backup';
+type Tab = 'holdings' | 'trade' | 'transactions' | 'data';
 
 interface View {
   tab: Tab;
@@ -20,7 +20,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'holdings', label: 'Stocks' },
   { key: 'trade', label: 'Trade' },
   { key: 'transactions', label: 'History' },
-  { key: 'backup', label: 'Backup' },
+  { key: 'data', label: 'Data' },
 ];
 
 function MainApp() {
@@ -56,7 +56,7 @@ function MainApp() {
           />
         )}
         {view.tab === 'transactions' && <TransactionsPage onEdit={(id) => go('trade', { editId: id })} />}
-        {view.tab === 'backup' && <BackupPage />}
+        {view.tab === 'data' && <DataPage />}
       </main>
       <nav className="tabs">
         {TABS.map((t) => (

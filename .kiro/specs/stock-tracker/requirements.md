@@ -65,7 +65,8 @@ A personal, offline-first app to record stock buy and sell transactions and see 
 7. THE app SHALL NOT allow an allocation quantity above the lot's remaining quantity, and SHALL NOT allow total sell quantity above the stock's total remaining quantity.
 8. WHEN a sell is saved, THE app SHALL reduce each selected lot's remaining quantity by its allocated quantity.
 9. THE sell SHALL record its realized profit or loss as the sum over allocations of (sell price − lot buy price) × allocated quantity, and SHALL display it after saving and in the transaction list.
-10. WHILE the user fills in a sell, THE form SHALL show the estimated profit or loss for each selected lot (in the lot table) and the total for all selected lots, updating as the quantities or sell price change. A lot's estimate SHALL be hidden while its quantity or the sell price is invalid.
+10. WHILE the user fills in a sell, THE form SHALL show the estimated profit or loss for each selected lot (in the lot table) and the total for all selected lots, updating as the quantities or sell price change. A lot's estimate SHALL be hidden while its quantity is invalid.
+11. THE lot table's P/L column SHALL use the sell price typed in the form, and when none is typed SHALL use the saved current price of the stock. For a lot with no quantity entered, it SHALL show the profit or loss for all remaining shares of that lot. A note under the table SHALL say which price is used, or ask the user to enter a price when neither exists.
 
 ### 5. Edit and delete transactions
 
@@ -80,6 +81,8 @@ A personal, offline-first app to record stock buy and sell transactions and see 
 6. THE app SHALL ask for confirmation before deleting.
 7. THE transaction list SHALL show, for every sell, each linked buy lot (quantity, buy date, buy price) with the profit or loss on that lot, and the total profit or loss for the sell.
 8. WHEN the user taps a linked buy lot on a sell, THE app SHALL scroll to that buy in the transaction list and briefly highlight it.
+9. THE transaction list SHALL have a filter with All, Fully sold, Partly sold, and Not sold, each with a count. A buy is fully sold when no shares remain, not sold when none were sold, and partly sold otherwise. WHEN one of the three status filters is on, THE list SHALL show only buys with that status, and tapping the active filter again SHALL return to All.
+10. EACH buy in the list SHALL show its sold status with the quantity sold and left.
 
 ### 6. Storage and persistence
 
@@ -125,10 +128,26 @@ A personal, offline-first app to record stock buy and sell transactions and see 
 8. WHEN existing data from before users existed is found, THE app SHALL assign it to a user named "Default".
 9. Backup export and import SHALL cover all users. Importing a version 1 backup (no users) SHALL assign its transactions to a "Default" user.
 
+### 10. Current prices and unrealized profit or loss
+
+**User story:** As an investor, I want to enter current prices myself, so that I can see how much profit or loss I would have today.
+
+**Acceptance criteria**
+1. THE app SHALL provide a Prices page with a text box and an option to load a text file into it.
+2. THE input SHALL have one stock per line as `NAME;PRICE`. The separator SHALL be a semicolon, so a price MAY contain commas (for example `12,560.00`). Blank lines and a header row SHALL be ignored.
+3. THE page SHALL show a preview of every line before saving, marking each as valid, invalid (with the reason, such as a missing `;` or a price that is not a number greater than zero), or repeated (the later line is used).
+4. WHEN the user saves, THE app SHALL store the valid lines only, stamp them with the current date and time, and SHALL skip invalid lines.
+5. THE app SHALL keep only the latest price of each stock, with no price history. A stock not in the input SHALL keep its previous price.
+6. Names SHALL be matched to stocks ignoring letter case and extra spaces. Prices SHALL be shared by all users.
+7. THE Prices page SHALL list all saved prices with the date and time each was updated, and SHALL list holdings that have no price.
+8. THE Stocks page SHALL show for each holding its current price, the date and time of that price, and its unrealized profit or loss, calculated over remaining lots as (price − lot price) × remaining quantity. Holdings without a price SHALL show "No current price".
+9. THE Stocks page SHALL show total unrealized profit or loss over holdings that have a price, and how many holdings have none.
+10. Backup export SHALL include prices, and importing a backup without prices SHALL clear the stored prices.
+
 ## Assumptions and out of scope
 
 - Single user, single device, one currency (₹). No login.
-- No brokerage, taxes, or fees. No live market prices or unrealized profit or loss.
+- No brokerage, taxes, or fees. No automatic market price fetching: prices are entered by the user (requirement 10).
 - No cloud or Google Sheets sync.
 - Quantities are whole shares.
 - Short selling is not supported.

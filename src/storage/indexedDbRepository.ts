@@ -1,12 +1,13 @@
 import Dexie, { type Table } from 'dexie';
 import { DEFAULT_USER_NAME, makeUser } from '../domain/user';
-import type { Allocation, Transaction, User } from '../domain/types';
+import type { Allocation, PriceQuote, Transaction, User } from '../domain/types';
 import type { Repository } from './repository';
 
 class StockDb extends Dexie {
   users!: Table<User, string>;
   transactions!: Table<Transaction, string>;
   allocations!: Table<Allocation, string>;
+  prices!: Table<PriceQuote, string>;
 
   constructor() {
     super('stock-tracker');
@@ -28,6 +29,8 @@ class StockDb extends Dexie {
         await tx.table('users').add(user);
         await txs.toCollection().modify({ userId: user.id });
       });
+    // v3: latest price per stock.
+    this.version(3).stores({ prices: 'stockKey' });
   }
 }
 
@@ -77,15 +80,34 @@ export class IndexedDbRepository implements Repository {
     });
   }
 
-  async replaceAll(users: User[], txs: Transaction[], allocs: Allocation[]): Promise<void> {
-    await this.db.transaction('rw', this.db.users, this.db.transactions, this.db.allocations, async () => {
-      await this.db.allocations.clear();
-      await this.db.transactions.clear();
-      await this.db.users.clear();
-      if (users.length) await this.db.users.bulkAdd(users);
-      if (txs.length) await this.db.transactions.bulkAdd(txs);
-      if (allocs.length) await this.db.allocations.bulkAdd(allocs);
-    });
+  listPrices(): Promise<PriceQuote[]> {
+    return this.db.prices.toArray();
+  }
+
+  async savePrices(quotes: PriceQuote[]): Promise<void> {
+    await this.db.prices.bulkPut(quotes);
+  }
+
+  async replaceAll(
+    users: User[],
+    txs: Transaction[],
+    allocs: Allocation[],
+    prices: PriceQuote[],
+  ): Promise<void> {
+    await this.db.transaction(
+      'rw',
+      [this.db.users, this.db.transactions, this.db.allocations, this.db.prices],
+      async () => {
+        await this.db.allocations.clear();
+        await this.db.transactions.clear();
+        await this.db.users.clear();
+        await this.db.prices.clear();
+        if (users.length) await this.db.users.bulkAdd(users);
+        if (txs.length) await this.db.transactions.bulkAdd(txs);
+        if (allocs.length) await this.db.allocations.bulkAdd(allocs);
+        if (prices.length) await this.db.prices.bulkAdd(prices);
+      },
+    );
   }
 
   async requestPersistence(): Promise<boolean | null> {

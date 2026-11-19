@@ -43,7 +43,7 @@ function LastCard({ title, tx }: { title: string; tx: Transaction | null }) {
 }
 
 export function TradePage({ initialStockName, editId, onDone }: Props) {
-  const { transactions, allocations, stockNames, trade, reload } = useData();
+  const { transactions, allocations, stockNames, trade, prices, reload } = useData();
 
   const editing = useMemo(
     () => (editId ? transactions.find((t) => t.id === editId) : undefined),
@@ -297,6 +297,7 @@ export function TradePage({ initialStockName, editId, onDone }: Props) {
                 ? {
                     sellQuantity: sellQty,
                     sellPrice: priceNum,
+                    currentPrice: prices.get(stockKey),
                     values: picked,
                     onChange: (lotId, value) => setPicked((p) => ({ ...p, [lotId]: value })),
                   }
