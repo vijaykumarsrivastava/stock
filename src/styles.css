@@ -1,4 +1,9 @@
 :root {
+  /* Android WebView may report 0 for env(); Capacitor injects --safe-area-inset-* as a fallback. */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --sal: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --sar: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   --green: #1b5e20;
   --red: #b71c1c;
   --bg: #f5f6f5;
@@ -10,8 +15,8 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); }
-main { max-width: 640px; margin: 0 auto; padding: 12px 14px calc(76px + env(safe-area-inset-bottom)); }
+body { margin: 0; background: var(--bg); padding-top: var(--sat); padding-left: var(--sal); padding-right: var(--sar); }
+main { max-width: 640px; margin: 0 auto; padding: 12px 14px calc(76px + var(--sab)); }
 h2 { margin: 8px 0 12px; }
 h3 { margin: 20px 0 8px; }
 .muted { color: var(--muted); }
@@ -71,7 +76,7 @@ table.lots tr.selected { background: #e8f5e9; }
 .empty { text-align: center; padding: 30px 0; }
 
 .fab {
-  position: fixed; right: 20px; bottom: calc(76px + env(safe-area-inset-bottom)); width: 56px; height: 56px;
+  position: fixed; right: 20px; bottom: calc(76px + var(--sab)); width: 56px; height: 56px;
   border-radius: 50%; border: 0; background: var(--green); color: #fff; font-size: 2rem; line-height: 1;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); cursor: pointer;
 }
@@ -88,7 +93,7 @@ table.lots tr.selected { background: #e8f5e9; }
 
 .tabs {
   position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: #fff; border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--sab);
 }
 .tabs button { flex: 1; padding: 14px 4px; border: 0; background: none; font: inherit; color: var(--muted); }
 .tabs button.active { color: var(--green); font-weight: 700; border-top: 3px solid var(--green); margin-top: -1px; }
